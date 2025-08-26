@@ -1,0 +1,1228 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Vinify — Gestión de Vinos Artesanales</title>
+<meta name="description" content="App para gestionar un pequeño negocio de vinos artesanales: inventario, clientes, ventas, costos y dashboards." />
+<meta name="theme-color" content="#7c3aed" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%237c3aed'/%3E%3Cpath d='M40 30 C45 10,55 10,60 30 C62 38,50 42,50 42 C50 42,38 38,40 30 Z' fill='white'/%3E%3C/svg%3E" />
+
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#fff; --text:#0b1220; --muted:#5b6674;
+    --accent:#7c3aed; --accent-2:#06b6d4; --success:#16a34a;
+    --danger:#ef4444; --glass: rgba(255,255,255,0.6);
+    --radius:12px; --shadow: 0 10px 30px rgba(15,23,42,0.06);
+    --gap:16px; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  [data-theme="dark"]{
+    --bg:#071023; --card:#071428; --text:#e6eef8; --muted:#9fb3d1;
+    --glass: rgba(255,255,255,0.03);
+    --shadow: 0 10px 30px rgba(2,6,23,0.7);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:linear-gradient(180deg,var(--bg), #e9eef8 120%);
+    color:var(--text); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  }
+
+  /* Layout */
+  .app{
+    display:grid; grid-template-columns: 280px 1fr; gap:var(--gap);
+    padding:24px; max-width:1400px; margin:18px auto;
+  }
+  @media(max-width:900px){
+    .app{grid-template-columns: 1fr; padding:14px}
+  }
+
+  /* Sidebar */
+  .sidebar{
+    background:linear-gradient(180deg,var(--card), rgba(255,255,255,0.02));
+    border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); position:sticky; top:18px;
+    height:fit-content;
+  }
+  .brand{display:flex;gap:12px;align-items:center;margin-bottom:18px}
+  .logo{
+    width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px;box-shadow:0 6px 18px rgba(124,58,237,0.22)
+  }
+  .brand h1{font-size:18px;margin:0}
+  .muted{color:var(--muted);font-size:13px}
+
+  nav ul{list-style:none;padding:0;margin:14px 0; display:grid; gap:8px}
+  nav button{
+    display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;border:none;background:transparent;color:var(--text);width:100%;
+  }
+  nav button.active{background:linear-gradient(90deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06));box-shadow:inset 0 0 0 1px rgba(0,0,0,0.02)}
+  .small{font-size:13px;color:var(--muted)}
+
+  .sidebar .section{margin-top:14px}
+  .sidebar footer{margin-top:18px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+
+  /* Main content */
+  main{display:flex;flex-direction:column;gap:16px}
+  .topbar{display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .controls{display:flex;gap:8px;align-items:center}
+  .search{display:flex;align-items:center;background:var(--card);border-radius:12px;padding:8px 10px;gap:8px;box-shadow:var(--shadow)}
+  .search input{border:0;background:transparent;outline:none;color:var(--text);width:220px}
+  .icon-btn{background:linear-gradient(180deg, rgba(124,58,237,0.12), rgba(6,182,212,0.04));border:none;padding:10px;border-radius:10px;color:var(--text)}
+  .chip{background:var(--glass);padding:8px 10px;border-radius:999px;color:var(--muted);font-size:13px}
+
+  /* Dashboard grid */
+  .grid{
+    display:grid; gap:16px; grid-template-columns: repeat(4,1fr);
+  }
+  @media(max-width:1100px){ .grid{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:600px){ .grid{grid-template-columns:1fr} }
+
+  .card{
+    background:var(--card); border-radius:14px; padding:16px; box-shadow:var(--shadow);
+  }
+  .kpi{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .kpi .value{font-size:20px;font-weight:700}
+  .kpi .label{color:var(--muted);font-size:13px}
+
+  /* Tables & lists */
+  .table{width:100%;border-collapse:collapse}
+  table th, table td{padding:10px;text-align:left;border-bottom:1px solid rgba(0,0,0,0.04)}
+  .muted-2{color:var(--muted);font-size:13px}
+  .btn{padding:8px 12px;border-radius:10px;border:none;background:var(--accent);color:white}
+  .btn.secondary{background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--text)}
+  .danger{background:var(--danger);color:white}
+
+  /* Forms */
+  form{display:grid;gap:10px}
+  label{font-size:13px;color:var(--muted)}
+  input[type="text"], input[type="number"], select, textarea{
+    padding:10px;border-radius:8px;border:1px solid var(--border, #e6e9ef);background:transparent;color:var(--text);
+  }
+
+  /* Modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center;z-index:60}
+  .modal{width:960px;max-width:96%;background:var(--card);padding:18px;border-radius:14px;box-shadow:var(--shadow)}
+  @media(max-width:600px){ .modal{padding:14px} }
+
+  /* small helpers */
+  .row{display:flex;gap:12px;align-items:center}
+  .col{display:flex;flex-direction:column;gap:8px}
+  .space{flex:1}
+  .tag{font-size:12px;padding:6px 8px;border-radius:999px;background:var(--glass);color:var(--muted)}
+
+  /* charts canvas */
+  canvas{width:100%;height:220px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.01), transparent)}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .legend span{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+  .legend .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  footer.app-footer{margin-top:8px;color:var(--muted);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="app" id="app" data-theme="light">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" aria-label="Navegación principal">
+    <div class="brand">
+      <div class="logo">Vn</div>
+      <div>
+        <h1>Vinify</h1>
+        <div class="muted">Gestión — Vinos artesanales</div>
+      </div>
+    </div>
+
+    <nav aria-label=" menú">
+      <ul>
+        <li><button class="nav-btn active" data-section="dashboard">📊 Dashboard</button></li>
+        <li><button class="nav-btn" data-section="inventory">🍾 Inventario</button></li>
+        <li><button class="nav-btn" data-section="customers">👥 Clientes</button></li>
+        <li><button class="nav-btn" data-section="sales">💳 Ventas</button></li>
+        <li><button class="nav-btn" data-section="purchases">📦 Pedidos</button></li>
+        <li><button class="nav-btn" data-section="costs">🏷️ Costos</button></li>
+        <li><button class="nav-btn" data-section="reports">📁 Reportes</button></li>
+        <li><button class="nav-btn" data-section="settings">⚙️ Ajustes</button></li>
+      </ul>
+    </nav>
+
+    <div class="section">
+      <div class="small">Acciones rápidas</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn" id="quick-add-wine">+ Vino</button>
+        <button class="btn secondary" id="quick-sale">+ Venta</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="small">Resumen</div>
+      <div style="display:grid;gap:6px;margin-top:8px">
+        <div class="chip" id="summary-stock">Stock total: 0</div>
+        <div class="chip" id="summary-sales">Ventas hoy: 0</div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="small">Tema</div>
+      <div style="display:flex;gap:8px;">
+        <button id="theme-toggle" class="icon-btn">🌓</button>
+        <div style="flex:1"></div>
+        <div class="small">v1.0</div>
+      </div>
+    </footer>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div class="topbar">
+      <div class="row">
+        <div class="search card-like" style="display:flex;align-items:center">
+          <svg width="16" height="16" viewBox="0 0 24 24" style="opacity:.6"><path fill="currentColor" d="M9.5 3A6.5 6.5 0 1 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0-2A8.5 8.5 0 1 0 18 9.5 8.5 8.5 0 0 0 9.5 1zM21 21l-4.35-4.35"/></svg>
+          <input id="global-search" placeholder="Buscar vino, cliente, venta..." />
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="chip" id="now">—</div>
+        <button class="btn secondary" id="export-data">Exportar</button>
+        <button class="btn" id="import-data">Importar</button>
+      </div>
+    </div>
+
+    <!-- SECTIONS -->
+    <section id="section-dashboard" class="section" data-section>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div>
+          <h2>Dashboard</h2>
+          <div class="muted">Visión general de ingresos, ventas, costos e inventario</div>
+        </div>
+        <div class="row">
+          <div class="tag">Periodo: Últimos 30 días</div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:12px">
+        <div class="card">
+          <div class="kpi">
+            <div>
+              <div class="label">Ingresos (últ. 30d)</div>
+              <div class="value" id="kpi-income">$0</div>
+            </div>
+            <div class="tag" id="kpi-income-trend">+0%</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="kpi">
+            <div>
+              <div class="label">Ventas totales</div>
+              <div class="value" id="kpi-sales-count">0</div>
+            </div>
+            <div class="tag" id="kpi-best-seller">—</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="kpi">
+            <div>
+              <div class="label">Costos</div>
+              <div class="value" id="kpi-costs">$0</div>
+            </div>
+            <div class="tag">por categorías</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="kpi">
+            <div>
+              <div class="label">Beneficio</div>
+              <div class="value" id="kpi-profit">$0</div>
+            </div>
+            <div class="tag" id="kpi-margin">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px">
+        <div class="card">
+          <h3>Ventas por día (últ. 30 días)</h3>
+          <canvas id="chart-sales"></canvas>
+          <div class="legend" id="legend-sales"></div>
+        </div>
+
+        <div class="card">
+          <h3>Inventario & Top Vinos</h3>
+          <canvas id="chart-stock" style="height:200px"></canvas>
+          <div id="top-wines" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="section-inventory" class="section" hidden data-section>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h2>Inventario</h2>
+          <div class="muted">Gestiona tus vinos: stock, precio y categoría</div>
+        </div>
+        <div>
+          <button class="btn" id="add-wine">Nuevo vino</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px" class="card">
+        <table class="table" id="table-wines">
+          <thead>
+            <tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="section-customers" class="section" hidden data-section>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h2>Clientes</h2>
+          <div class="muted">Registra clientes y sus vinos favoritos</div>
+        </div>
+        <div>
+          <button class="btn" id="add-customer">Nuevo cliente</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px" class="card">
+        <table class="table" id="table-customers">
+          <thead><tr><th>Nombre</th><th>Teléfono/Email</th><th>Favoritos</th><th>Acciones</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="section-sales" class="section" hidden data-section>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h2>Ventas</h2>
+          <div class="muted">Registra ventas y visualiza el historial</div>
+        </div>
+        <div>
+          <button class="btn" id="add-sale">Registrar venta</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px" class="card">
+        <table class="table" id="table-sales">
+          <thead><tr><th>Fecha</th><th>Cliente</th><th>Items</th><th>Total</th><th>Acciones</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="section-purchases" class="section" hidden data-section>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h2>Pedidos / Recepciones</h2>
+          <div class="muted">Registra compras y aumenta stock</div>
+        </div>
+        <div>
+          <button class="btn" id="add-purchase">Nuevo pedido</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px" class="card">
+        <table class="table" id="table-purchases">
+          <thead><tr><th>Fecha</th><th>Proveedor</th><th>Items</th><th>Costo total</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="section-costs" class="section" hidden data-section>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h2>Costos</h2>
+          <div class="muted">Categoriza tus costos y evalúa impacto</div>
+        </div>
+        <div>
+          <button class="btn" id="add-cost">Añadir costo</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px" class="card">
+        <table class="table" id="table-costs">
+          <thead><tr><th>Fecha</th><th>Categoria</th><th>Descripción</th><th>Monto</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="section-reports" class="section" hidden data-section>
+      <h2>Reportes</h2>
+      <div class="muted">Exporta datos o revisa historiales</div>
+      <div style="margin-top:12px" class="card">
+        <div class="row">
+          <button class="btn" id="export-csv">Exportar CSV</button>
+          <div class="space"></div>
+          <div class="muted">Última exportación: <span id="last-export">Nunca</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="section-settings" class="section" hidden data-section>
+      <h2>Ajustes</h2>
+      <div class="muted">Preferencias de la app</div>
+      <div style="margin-top:12px" class="card">
+        <div class="col">
+          <div class="row">
+            <label style="width:140px">Tema</label>
+            <select id="settings-theme" style="width:200px;padding:8px;border-radius:8px">
+              <option value="light">Claro</option>
+              <option value="dark">Oscuro</option>
+            </select>
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <label style="width:140px">Moneda</label>
+            <input id="settings-currency" value="USD" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="app-footer">Vinify · Demo — App local para gestión de vino artesanal 🍷</footer>
+  </main>
+</div>
+
+<!-- MODALS (hidden container) -->
+<div id="modals"></div>
+
+<!-- SCRIPTS -->
+<script>
+/* ======================
+   Utilidades & Storage
+   ====================== */
+
+const DB_NAME = 'vinify-db';
+const DB_VERSION = 1;
+let db;
+
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const idb = e.target.result;
+      if(!idb.objectStoreNames.contains('wines')){
+        const s = idb.createObjectStore('wines', {keyPath:'id',autoIncrement:true});
+        s.createIndex('name','name',{unique:false});
+      }
+      if(!idb.objectStoreNames.contains('customers')){
+        idb.createObjectStore('customers',{keyPath:'id',autoIncrement:true});
+      }
+      if(!idb.objectStoreNames.contains('sales')){
+        idb.createObjectStore('sales',{keyPath:'id',autoIncrement:true});
+      }
+      if(!idb.objectStoreNames.contains('purchases')){
+        idb.createObjectStore('purchases',{keyPath:'id',autoIncrement:true});
+      }
+      if(!idb.objectStoreNames.contains('costs')){
+        idb.createObjectStore('costs',{keyPath:'id',autoIncrement:true});
+      }
+      if(!idb.objectStoreNames.contains('meta')){
+        idb.createObjectStore('meta',{keyPath:'k'});
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function tx(storeNames, mode='readonly'){
+  const tx = db.transaction(storeNames, mode);
+  const stores = {};
+  for(const s of storeNames) stores[s] = tx.objectStore(s);
+  return {tx, stores, complete: () => new Promise((res, rej) => { tx.oncomplete = ()=>res(); tx.onabort = tx.onerror = (e)=>rej(e); })};
+}
+
+function add(store, obj){
+  return new Promise((res,rej)=>{
+    const t = db.transaction([store],'readwrite').objectStore(store).add(obj);
+    t.onsuccess = e => res(e.target.result);
+    t.onerror = e => rej(e.target.error);
+  });
+}
+function put(store, obj){
+  return new Promise((res,rej)=>{
+    const t = db.transaction([store],'readwrite').objectStore(store).put(obj);
+    t.onsuccess = e => res(e.target.result);
+    t.onerror = e => rej(e.target.error);
+  });
+}
+function del(store, key){
+  return new Promise((res,rej)=>{
+    const t = db.transaction([store],'readwrite').objectStore(store).delete(key);
+    t.onsuccess = () => res();
+    t.onerror = e=>rej(e.target.error);
+  });
+}
+function getAll(store){
+  return new Promise((res,rej)=>{
+    const arr=[]; const cur = db.transaction([store]).objectStore(store).openCursor();
+    cur.onsuccess = e => {
+      const c = e.target.result;
+      if(c){ arr.push(c.value); c.continue(); } else res(arr);
+    };
+    cur.onerror = e=>rej(e.target.error);
+  });
+}
+function getById(store, id){
+  return new Promise((res,rej)=>{
+    const r = db.transaction([store]).objectStore(store).get(id);
+    r.onsuccess = e=>res(e.target.result);
+    r.onerror = e=>rej(e.target.error);
+  });
+}
+
+/* ======================
+   App State
+   ====================== */
+const state = {
+  wines: [],
+  customers: [],
+  sales: [],
+  purchases: [],
+  costs: [],
+  currency: 'USD'
+};
+
+/* ======================
+   Init & UI wiring
+   ====================== */
+
+async function init(){
+  await openDB();
+  // load initial data or seed demo if DB empty
+  const wines = await getAll('wines');
+  if(wines.length === 0){
+    await seedDemoData();
+  }
+  await refreshAll();
+  setupListeners();
+  updateNow();
+  setInterval(updateNow, 60000);
+  initCharts();
+  tryRegisterSW();
+}
+
+async function seedDemoData(){
+  const sampleWines = [
+    {name:'Tinto Reserva', category:'Tinto', price:18.5, stock:40, abv:13.5},
+    {name:'Blanco Floral', category:'Blanco', price:15.0, stock:28, abv:12.0},
+    {name:'Rosado Alegre', category:'Rosado', price:12.5, stock:32, abv:11.5},
+    {name:'Dulce de Vendimia', category:'Dulce', price:22.0, stock:10, abv:14.0}
+  ];
+  for(const w of sampleWines) await add('wines', w);
+
+  await add('customers', {name:'María López', contact:'maria@example.com', favorites: [1,3]});
+  await add('customers', {name:'Bodega El Sol', contact:'contact@elsol.com', favorites: []});
+  await add('costs', {date: new Date().toISOString(), category:'Embotellado', description:'Botellas', amount:120});
+  await add('sales', {date:new Date().toISOString(), customerId:1, items:[{wineId:1, qty:2, price:18.5}], total:37});
+  // reduce stock
+  const w1 = await getById('wines',1); if(w1){ w1.stock = Math.max(0, w1.stock - 2); await put('wines', w1); }
+}
+
+/* Refresh state from DB and render UI */
+async function refreshAll(){
+  state.wines = await getAll('wines');
+  state.customers = await getAll('customers');
+  state.sales = await getAll('sales');
+  state.purchases = await getAll('purchases');
+  state.costs = await getAll('costs');
+
+  document.getElementById('summary-stock').textContent = `Stock total: ${totalStock()}`;
+  document.getElementById('summary-sales').textContent = `Ventas hoy: ${salesToday().length}`;
+  renderWines();
+  renderCustomers();
+  renderSales();
+  renderPurchases();
+  renderCosts();
+  updateKPIs();
+  updateCharts();
+}
+
+/* ======================
+   Utils: calculations
+   ====================== */
+function totalStock(){
+  return state.wines.reduce((s,w)=>s + (Number(w.stock)||0),0);
+}
+function salesToday(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  return state.sales.filter(s => new Date(s.date) >= today);
+}
+function sumAmount(list){ return list.reduce((s,i)=>s + (Number(i.amount||i.total||0)),0); }
+
+function totalIncome(lastDays=30){
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - lastDays);
+  return state.sales.filter(s=> new Date(s.date) >= cutoff).reduce((s,x)=>s + Number(x.total||0),0);
+}
+function totalCosts(lastDays=30){
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - lastDays);
+  const costs1 = state.costs.filter(c=> new Date(c.date) >= cutoff).reduce((s,c)=>s + Number(c.amount||0),0);
+  const purchases = state.purchases.filter(p=> new Date(p.date)>=cutoff).reduce((s,p)=>s + Number(p.total||0),0);
+  return costs1 + purchases;
+}
+function profit(lastDays=30){
+  return totalIncome(lastDays) - totalCosts(lastDays);
+}
+
+/* ======================
+   Renderers
+   ====================== */
+
+function formatCurrency(v){ return `${state.currency} ${Number(v||0).toFixed(2)}`; }
+
+function renderWines(){
+  const tbody = document.querySelector('#table-wines tbody');
+  tbody.innerHTML = '';
+  const rows = state.wines.sort((a,b)=>a.name.localeCompare(b.name)).map(w => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${escapeHTML(w.name||'—')}</strong><div class="muted-2">ABV: ${w.abv||'—'}%</div></td>
+      <td>${escapeHTML(w.category||'—')}</td>
+      <td>${formatCurrency(w.price)}</td>
+      <td>${w.stock||0}</td>
+      <td>
+        <button class="btn secondary" data-act="edit-wine" data-id="${w.id}">Editar</button>
+        <button class="btn" data-act="receive" data-id="${w.id}">Recepción</button>
+        <button class="btn danger" data-act="delete-wine" data-id="${w.id}">Eliminar</button>
+      </td>`;
+    tbody.appendChild(tr);
+    return tr;
+  });
+}
+
+function renderCustomers(){
+  const tbody = document.querySelector('#table-customers tbody'); tbody.innerHTML = '';
+  for(const c of state.customers){
+    const favs = (c.favorites||[]).map(id => (state.wines.find(w=>w.id===id)||{}).name).filter(Boolean).slice(0,3).join(', ') || '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${escapeHTML(c.name)}</strong></td>
+      <td class="muted-2">${escapeHTML(c.contact||'—')}</td>
+      <td>${escapeHTML(favs)}</td>
+      <td>
+        <button class="btn secondary" data-act="edit-customer" data-id="${c.id}">Editar</button>
+        <button class="btn" data-act="delete-customer" data-id="${c.id}">Eliminar</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderSales(){
+  const tbody = document.querySelector('#table-sales tbody'); tbody.innerHTML = '';
+  const rows = state.sales.slice().sort((a,b)=> new Date(b.date)-new Date(a.date));
+  for(const s of rows){
+    const client = state.customers.find(c=>c.id===s.customerId) || {name:'—'};
+    const items = (s.items||[]).map(it=>{
+      const wine = state.wines.find(w=>w.id===it.wineId) || {name:'—'};
+      return `${wine.name} x${it.qty}`;
+    }).join(', ');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${new Date(s.date).toLocaleString()}</td>
+      <td>${escapeHTML(client.name)}</td>
+      <td class="muted-2">${escapeHTML(items)}</td>
+      <td><strong>${formatCurrency(s.total)}</strong></td>
+      <td><button class="btn secondary" data-act="view-sale" data-id="${s.id}">Ver</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderPurchases(){
+  const tbody = document.querySelector('#table-purchases tbody'); tbody.innerHTML = '';
+  for(const p of state.purchases.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))){
+    const items = (p.items||[]).map(it=> `${(state.wines.find(w=>w.id===it.wineId)||{}).name || '—'} x${it.qty}`).join(', ');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${new Date(p.date).toLocaleString()}</td><td>${escapeHTML(p.supplier||'—')}</td><td class="muted-2">${escapeHTML(items)}</td><td>${formatCurrency(p.total)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderCosts(){
+  const tbody = document.querySelector('#table-costs tbody'); tbody.innerHTML = '';
+  for(const c of state.costs.slice().sort((a,b)=> new Date(b.date)-new Date(a.date))){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${new Date(c.date).toLocaleString()}</td><td>${escapeHTML(c.category)}</td><td class="muted-2">${escapeHTML(c.description)}</td><td>${formatCurrency(c.amount)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+/* ======================
+   CRUD / Business logic
+   ====================== */
+
+async function createWine(data){
+  const id = await add('wines', data);
+  data.id = id;
+  state.wines.push(data);
+  await refreshAll();
+  notify('Vino añadido');
+}
+
+async function updateWine(data){
+  await put('wines', data);
+  await refreshAll();
+  notify('Vino actualizado');
+}
+
+async function deleteWine(id){
+  if(!confirm('Eliminar vino — esta acción no se puede deshacer.')) return;
+  await del('wines', id);
+  await refreshAll();
+  notify('Vino eliminado');
+}
+
+async function receiveStock(wineId, qty, cost=0, supplier='--'){
+  const wine = await getById('wines', wineId);
+  wine.stock = (Number(wine.stock)||0) + Number(qty);
+  await put('wines', wine);
+  // add purchase record
+  const total = Number(cost) || 0;
+  await add('purchases', {date:new Date().toISOString(), supplier, items:[{wineId, qty:Number(qty), cost:Number(cost)}], total});
+  await refreshAll();
+  notify('Stock actualizado (recepción)');
+}
+
+async function recordSale({customerId, items}){
+  // items: [{wineId, qty, price}]
+  if(!items || items.length===0) { alert('No hay items en la venta'); return; }
+  let total = 0;
+  for(const it of items){
+    total += Number(it.price||0) * Number(it.qty||0);
+  }
+  // reduce stock and validate availability
+  for(const it of items){
+    const wine = await getById('wines', it.wineId);
+    if((Number(wine.stock)||0) < Number(it.qty)) {
+      alert(`Stock insuficiente para ${wine.name}. Disponibles: ${wine.stock}`);
+      return;
+    }
+  }
+  // apply stock reduction
+  for(const it of items){
+    const wine = await getById('wines', it.wineId);
+    wine.stock = (Number(wine.stock)||0) - Number(it.qty);
+    await put('wines', wine);
+  }
+  const sale = {date:new Date().toISOString(), customerId, items, total};
+  await add('sales', sale);
+  await refreshAll();
+  notify('Venta registrada con éxito');
+}
+
+async function addCost({category, description, amount}){
+  await add('costs', {date:new Date().toISOString(), category, description, amount:Number(amount)});
+  await refreshAll();
+  notify('Costo registrado');
+}
+
+/* ======================
+   UI helpers: Modals & forms
+   ====================== */
+
+function showModal(html, opts={}) {
+  const modals = document.getElementById('modals');
+  const id = 'm' + Math.random().toString(36).slice(2,9);
+  const wrapper = document.createElement('div');
+  wrapper.className = 'modal-backdrop';
+  wrapper.id = id;
+  wrapper.innerHTML = `<div class="modal">${html}</div>`;
+  wrapper.addEventListener('click', (e)=>{ if(e.target===wrapper && opts.closeOnBackdrop!==false) closeModal(id); });
+  modals.appendChild(wrapper);
+  return id;
+}
+function closeModal(id){
+  const el = document.getElementById(id);
+  if(el) el.remove();
+}
+
+function escapeHTML(s){ if(s==null) return ''; return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+function notify(msg, time=2000){
+  const n = document.createElement('div');
+  n.textContent = msg; n.style.position='fixed'; n.style.right='20px'; n.style.bottom='20px';
+  n.style.padding='10px 14px'; n.style.borderRadius='10px'; n.style.background='linear-gradient(90deg,var(--accent),var(--accent-2))';
+  n.style.color='white'; n.style.boxShadow='var(--shadow)'; n.style.zIndex=9999;
+  document.body.appendChild(n);
+  setTimeout(()=> n.style.opacity = 0, time-400);
+  setTimeout(()=> n.remove(), time);
+}
+
+/* ======================
+   Event listeners & actions
+   ====================== */
+
+function setupListeners(){
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', (e)=>{
+      document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const section = btn.dataset.section;
+      document.querySelectorAll('[data-section]').forEach(s=>s.hidden = true);
+      document.getElementById('section-' + section).hidden = false;
+    });
+  });
+
+  document.getElementById('add-wine').addEventListener('click', openWineModal);
+  document.getElementById('quick-add-wine').addEventListener('click', openWineModal);
+  document.getElementById('add-customer').addEventListener('click', openCustomerModal);
+  document.getElementById('add-sale').addEventListener('click', openSaleModal);
+  document.getElementById('quick-sale').addEventListener('click', openSaleModal);
+  document.getElementById('add-purchase').addEventListener('click', openReceiveModal);
+  document.getElementById('add-cost').addEventListener('click', openCostModal);
+  document.getElementById('export-data').addEventListener('click', exportJSON);
+  document.getElementById('import-data').addEventListener('click', importJSON);
+  document.getElementById('global-search').addEventListener('input', (e)=> quickSearch(e.target.value));
+
+  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  document.getElementById('settings-theme').addEventListener('change', (e)=> setTheme(e.target.value));
+  document.getElementById('settings-currency').addEventListener('change', (e)=> { state.currency = e.target.value || 'USD'; localStorage.setItem('vinify-currency', state.currency); updateKPIs(); updateCharts(); });
+
+  document.getElementById('table-wines').addEventListener('click', async (e)=>{
+    const act = e.target.dataset.act;
+    const id = Number(e.target.dataset.id);
+    if(!act) return;
+    if(act === 'edit-wine') {
+      const w = await getById('wines', id);
+      openWineModal(w);
+    } else if(act === 'delete-wine'){
+      await deleteWine(id);
+    } else if(act === 'receive'){
+      openReceiveModal(id);
+    }
+  });
+
+  document.getElementById('table-customers').addEventListener('click', async (e)=>{
+    const act = e.target.dataset.act;
+    const id = Number(e.target.dataset.id);
+    if(!act) return;
+    if(act === 'edit-customer'){
+      const c = await getById('customers', id);
+      openCustomerModal(c);
+    } else if(act === 'delete-customer'){
+      if(confirm('Eliminar cliente?')) { await del('customers', id); await refreshAll(); notify('Cliente eliminado'); }
+    }
+  });
+
+  document.getElementById('table-sales').addEventListener('click', async (e)=>{
+    const act = e.target.dataset.act; const id = Number(e.target.dataset.id);
+    if(act === 'view-sale'){
+      const s = await getById('sales', id);
+      openSaleView(s);
+    }
+  });
+
+  document.getElementById('export-csv').addEventListener('click', exportCSV);
+
+  // delegated for modals: forms submission
+  document.getElementById('modals').addEventListener('submit', async (e)=> {
+    e.preventDefault();
+    const form = e.target;
+    if(form.dataset.form === 'wine'){
+      const id = form.dataset.id ? Number(form.dataset.id) : null;
+      const data = {name: form.name.value.trim(), category: form.category.value.trim(), price: Number(form.price.value||0), stock: Number(form.stock.value||0), abv: Number(form.abv.value||0)};
+      if(!data.name) return alert('El nombre es obligatorio');
+      if(id) { data.id = id; await updateWine(data); closeModal(form.closest('.modal-backdrop').id); }
+      else { await createWine(data); closeModal(form.closest('.modal-backdrop').id); }
+    } else if(form.dataset.form === 'customer'){
+      const id = form.dataset.id ? Number(form.dataset.id) : null;
+      const data = {name: form.name.value.trim(), contact: form.contact.value.trim(), favorites: Array.from(form.querySelectorAll('input[name="fav"]:checked')).map(i=>Number(i.value))};
+      if(!data.name) return alert('Nombre requerido');
+      if(id){ data.id=id; await put('customers', data); await refreshAll(); closeModal(form.closest('.modal-backdrop').id); notify('Cliente actualizado'); }
+      else { await add('customers', data); await refreshAll(); closeModal(form.closest('.modal-backdrop').id); notify('Cliente creado'); }
+    } else if(form.dataset.form === 'receive'){
+      const id = Number(form.dataset.wineId) || Number(form.querySelector('[name="wineId"]').value);
+      const qty = Number(form.qty.value||0);
+      const cost = Number(form.cost.value||0);
+      if(qty <= 0) return alert('Cantidad > 0');
+      await receiveStock(id, qty, cost, form.supplier.value || 'Proveedor');
+      closeModal(form.closest('.modal-backdrop').id);
+    } else if(form.dataset.form === 'sale'){
+      const customerId = Number(form.customer.value||0) || null;
+      const items = [];
+      form.querySelectorAll('.sale-item-row').forEach(row=>{
+        const wid = Number(row.querySelector('[name="wineId"]').value);
+        const qty = Number(row.querySelector('[name="qty"]').value);
+        const price = Number(row.querySelector('[name="price"]').value);
+        if(wid && qty>0) items.push({wineId:wid, qty, price});
+      });
+      if(items.length===0) return alert('Agregar al menos un item');
+      await recordSale({customerId, items});
+      closeModal(form.closest('.modal-backdrop').id);
+    } else if(form.dataset.form === 'cost'){
+      await addCost({category: form.category.value, description: form.description.value, amount: Number(form.amount.value||0)});
+      closeModal(form.closest('.modal-backdrop').id);
+    }
+  });
+}
+
+/* ======================
+   Modals: open forms
+   ====================== */
+
+function openWineModal(existing=null){
+  const id = existing?.id ? existing.id : '';
+  const html = `<h3>${existing?'Editar vino':'Nuevo vino'}</h3>
+  <form data-form="wine" data-id="${id}">
+    <div class="row"><div style="flex:1"><label>Nombre</label><input name="name" value="${existing?escapeHTML(existing.name):''}" required></div>
+    <div style="width:140px"><label>ABV %</label><input name="abv" type="number" step="0.1" value="${existing?escapeHTML(existing.abv):''}"></div></div>
+    <div class="row"><div style="flex:1"><label>Categoría</label><input name="category" value="${existing?escapeHTML(existing.category):''}"></div><div style="width:140px"><label>Precio</label><input name="price" type="number" step="0.01" value="${existing?escapeHTML(existing.price):''}" required></div></div>
+    <div class="row"><div style="width:180px"><label>Stock inicial</label><input name="stock" type="number" value="${existing?escapeHTML(existing.stock):0}"></div></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" type="submit">Guardar</button><button class="btn secondary" type="button" onclick="closeModal(this.closest('.modal-backdrop').id)">Cancelar</button></div>
+  </form>`;
+  showModal(html, {closeOnBackdrop:true});
+}
+
+function openCustomerModal(existing=null){
+  const favCheckboxes = state.wines.map(w => `<label style="display:inline-block;margin-right:8px"><input type="checkbox" name="fav" value="${w.id}" ${existing && (existing.favorites||[]).includes(w.id) ? 'checked':''}> ${escapeHTML(w.name)}</label>`).join('');
+  const html = `<h3>${existing?'Editar cliente':'Nuevo cliente'}</h3>
+  <form data-form="customer" ${existing?`data-id="${existing.id}"`:''}>
+    <div><label>Nombre</label><input name="name" value="${existing?escapeHTML(existing.name):''}" required></div>
+    <div><label>Contacto</label><input name="contact" value="${existing?escapeHTML(existing.contact):''}"></div>
+    <div><label>Vinos favoritos</label><div style="max-height:120px;overflow:auto">${favCheckboxes}</div></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" type="submit">Guardar</button><button class="btn secondary" type="button" onclick="closeModal(this.closest('.modal-backdrop').id)">Cancelar</button></div>
+  </form>`;
+  showModal(html, {closeOnBackdrop:true});
+}
+
+function openReceiveModal(wineId=null){
+  const wineSelect = state.wines.map(w=>`<option value="${w.id}" ${wineId===w.id?'selected':''}>${escapeHTML(w.name)} (stock:${w.stock||0})</option>`).join('');
+  const html = `<h3>Recepción de stock</h3>
+  <form data-form="receive" ${wineId?`data-wine-id="${wineId}"`:''}>
+    <div><label>Vino</label><select name="wineId">${wineSelect}</select></div>
+    <div class="row"><div style="width:180px"><label>Cantidad</label><input name="qty" type="number" value="1" required></div><div style="width:200px"><label>Costo total (opcional)</label><input name="cost" type="number" step="0.01" value="0"></div></div>
+    <div><label>Proveedor</label><input name="supplier" value=""></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" type="submit">Registrar</button><button class="btn secondary" type="button" onclick="closeModal(this.closest('.modal-backdrop').id)">Cancelar</button></div>
+  </form>`;
+  showModal(html);
+}
+
+function openSaleModal(){
+  const wineOptions = state.wines.map(w=>`<option value="${w.id}">${escapeHTML(w.name)} (stock:${w.stock||0})</option>`).join('');
+  const custOptions = `<option value="">— Cliente ocasional —</option>` + state.customers.map(c=>`<option value="${c.id}">${escapeHTML(c.name)}</option>`).join('');
+  const html = `<h3>Registrar venta</h3>
+    <form data-form="sale">
+      <div><label>Cliente</label><select name="customer">${custOptions}</select></div>
+      <div id="sale-items-container" style="display:grid;gap:8px;margin-top:8px">
+        ${saleItemRowTemplate(wineOptions)}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" class="btn secondary" id="add-sale-item">Añadir item</button>
+        <div class="space"></div>
+        <button class="btn" type="submit">Finalizar venta</button>
+      </div>
+    </form>`;
+  const mid = showModal(html);
+  document.getElementById(mid).querySelector('#add-sale-item').addEventListener('click', ()=>{
+    const container = document.getElementById(mid).querySelector('#sale-items-container');
+    container.insertAdjacentHTML('beforeend', saleItemRowTemplate(wineOptions));
+  });
+  // prefill price based on wine selection
+  document.getElementById(mid).addEventListener('input', (e)=>{
+    if(e.target && e.target.name === 'wineId'){
+      const row = e.target.closest('.sale-item-row');
+      const wid = Number(e.target.value);
+      const w = state.wines.find(x=>x.id===wid);
+      if(w) row.querySelector('[name="price"]').value = Number(w.price||0);
+    }
+  });
+}
+
+function saleItemRowTemplate(wineOptions){
+  return `<div class="sale-item-row row" style="gap:8px">
+    <select name="wineId" style="min-width:260px">${wineOptions}</select>
+    <input name="qty" type="number" min="1" value="1" style="width:80px" />
+    <input name="price" type="number" step="0.01" value="0" style="width:120px" />
+    <button type="button" class="btn secondary" onclick="this.closest('.sale-item-row').remove()">Quitar</button>
+  </div>`;
+}
+
+function openSaleView(s){
+  const items = (s.items||[]).map(it=>{
+    const w = state.wines.find(x=>x.id===it.wineId) || {};
+    return `<li>${escapeHTML(w.name||'—')} — ${it.qty} x ${formatCurrency(it.price)} = <strong>${formatCurrency(it.qty*it.price)}</strong></li>`;
+  }).join('');
+  const client = state.customers.find(c=>c.id===s.customerId) || {name:'—'};
+  const html = `<h3>Venta #${s.id || ''}</h3>
+    <div class="muted-2">${new Date(s.date).toLocaleString()} — Cliente: ${escapeHTML(client.name)}</div>
+    <ul style="margin-top:12px">${items}</ul>
+    <div style="margin-top:12px"><strong>Total: ${formatCurrency(s.total)}</strong></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" onclick="closeModal(this.closest('.modal-backdrop').id)">Cerrar</button></div>`;
+  showModal(html);
+}
+
+function openCostModal(){
+  const html = `<h3>Registrar costo</h3>
+  <form data-form="cost">
+    <div><label>Categoría</label><input name="category" required></div>
+    <div><label>Descripción</label><input name="description"></div>
+    <div><label>Monto</label><input name="amount" type="number" step="0.01" required></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" type="submit">Guardar</button><button class="btn secondary" type="button" onclick="closeModal(this.closest('.modal-backdrop').id)">Cancelar</button></div>
+  </form>`;
+  showModal(html);
+}
+
+/* ======================
+   Quick search
+   ====================== */
+
+function quickSearch(q){
+  q = (q||'').toLowerCase().trim();
+  if(q === ''){ refreshAll(); return; }
+  // search wines and customers and sales
+  const wineResults = state.wines.filter(w => w.name.toLowerCase().includes(q));
+  const custResults = state.customers.filter(c => c.name.toLowerCase().includes(q));
+  // show a temporary modal with results
+  const html = `<h3>Resultados de búsqueda</h3>
+    <div style="display:flex;gap:12px">
+      <div style="flex:1">
+        <h4>Vinos</h4>
+        <ul>${wineResults.map(w=>`<li>${escapeHTML(w.name)} — stock: ${w.stock||0}</li>`).join('') || '<li class="muted-2">Sin resultados</li>'}</ul>
+      </div>
+      <div style="flex:1">
+        <h4>Clientes</h4>
+        <ul>${custResults.map(c=>`<li>${escapeHTML(c.name)} — ${escapeHTML(c.contact||'')}</li>`).join('') || '<li class="muted-2">Sin resultados</li>'}</ul>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="closeModal(this.closest('.modal-backdrop').id)">Cerrar</button></div>`;
+  showModal(html);
+}
+
+/* ======================
+   Export / Import
+   ====================== */
+
+async function exportJSON(){
+  const data = {
+    wines: await getAll('wines'),
+    customers: await getAll('customers'),
+    sales: await getAll('sales'),
+    purchases: await getAll('purchases'),
+    costs: await getAll('costs')
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'vinify-export.json'; a.click();
+  URL.revokeObjectURL(url);
+  notify('Exportado JSON');
+}
+
+async function importJSON(){
+  const html = `<h3>Importar datos</h3>
+    <div class="muted-2">Sube un archivo JSON exportado previamente</div>
+    <input id="import-file" type="file" accept="application/json" style="margin-top:8px" />
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="do-import">Importar</button><button class="btn secondary" onclick="closeModal(this.closest('.modal-backdrop').id)">Cancelar</button></div>`;
+  const mid = showModal(html);
+  document.getElementById(mid).querySelector('#do-import').addEventListener('click', async ()=>{
+    const f = document.getElementById(mid).querySelector('#import-file').files[0];
+    if(!f) return alert('Selecciona archivo');
+    const txt = await f.text();
+    try{
+      const obj = JSON.parse(txt);
+      // naive import: clear stores and add
+      await clearAndImport(obj);
+      closeModal(mid);
+      notify('Importado con éxito');
+    }catch(err){ alert('Archivo inválido'); }
+  });
+}
+
+async function clearAndImport(obj){
+  // Remove all and add new
+  const stores = ['wines','customers','sales','purchases','costs'];
+  for(const s of stores){
+    const all = await getAll(s);
+    for(const i of all) await del(s, i.id);
+  }
+  if(obj.wines) for(const w of obj.wines) { const copy = {...w}; delete copy.id; await add('wines', copy); }
+  if(obj.customers) for(const c of obj.customers) { const copy = {...c}; delete copy.id; await add('customers', copy); }
+  if(obj.sales) for(const s of obj.sales) { const copy = {...s}; delete copy.id; await add('sales', copy); }
+  if(obj.purchases) for(const p of obj.purchases) { const copy = {...p}; delete copy.id; await add('purchases', copy); }
+  if(obj.costs) for(const c of obj.costs) { const copy = {...c}; delete copy.id; await add('costs', copy); }
+  await refreshAll();
+}
+
+/* ======================
+   Charts
+   ====================== */
+
+let salesChartCtx, stockChartCtx;
+function initCharts(){
+  salesChartCtx = document.getElementById('chart-sales').getContext('2d');
+  stockChartCtx = document.getElementById('chart-stock').getContext('2d');
+  updateCharts();
+}
+
+function updateCharts(){
+  drawSalesByDay(salesChartCtx);
+  drawStockChart(stockChartCtx);
+}
+
+function drawSalesByDay(ctx, days=30){
+  // prepare days array
+  const labels = [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  for(let i = days-1; i>=0; i--){
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    labels.push(d.toLocaleDateString());
+  }
+  const values = labels.map(lbl=>{
+    const d = new Date(lbl);
+    return state.sales.filter(s=> new Date(s.date).toLocaleDateString() === d.toLocaleDateString()).reduce((s,x)=>s + Number(x.total||0),0);
+  });
+
+  // clear
+  ctx.canvas.width = ctx.canvas.clientWidth * devicePixelRatio;
+  ctx.canvas.height = 220 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  // draw simple line chart
+  const w = ctx.canvas.clientWidth; const h = 180;
+  ctx.clearRect(0,0,w+50,h+30);
+  const max = Math.max(...values, 10);
+  const pad = 30;
+  ctx.beginPath(); ctx.moveTo(pad, h - (values[0]/max)*(h-40));
+  for(let i=0;i<values.length;i++){
+    const x = pad + (i*( (w-pad*2) / (values.length-1) ));
+    const y = h - (values[i]/max)*(h-40);
+    ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 2; ctx.stroke();
+
+  // fill gradient
+  const grad = ctx.createLinearGradient(0,0,0,h); grad.addColorStop(0, 'rgba(124,58,237,0.12)'); grad.addColorStop(1, 'rgba(124,58,237,0.02)');
+  ctx.lineTo(w-pad, h); ctx.lineTo(pad, h); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+
+  // axes labels
+  ctx.fillStyle = 'var(--muted)'; ctx.font = '12px Inter, Arial';
+  ctx.fillText(formatCurrency(values.reduce((s,x)=>s+x,0)), w - 120, 18);
+
+  // legend
+  const legend = document.getElementById('legend-sales');
+  legend.innerHTML = `<span><span class="dot" style="background:#7c3aed"></span> Ventas</span><span style="margin-left:8px" class="muted-2">Total ${formatCurrency(values.reduce((s,x)=>s+x,0))}</span>`;
+}
+
+function drawStockChart(ctx){
+  const wines = state.wines.slice().sort((a,b)=>b.stock - a.stock).slice(0,6);
+  const labels = wines.map(w=>w.name);
+  const values = wines.map(w=>w.stock||0);
+
+  ctx.canvas.width = ctx.canvas.clientWidth * devicePixelRatio;
+  ctx.canvas.height = 200 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0,0,ctx.canvas.clientWidth,200);
+
+  const w = ctx.canvas.clientWidth; const h = 140; const pad = 40;
+  const bw = Math.max(24, (w - pad*2) / Math.max(1, values.length) - 10);
+  const max = Math.max(...values,1);
+  for(let i=0;i<values.length;i++){
+    const x = pad + i*(bw + 10);
+    const barH = (values[i]/max)*(h-20);
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillRect(x, h - barH, bw, barH);
+    ctx.fillStyle = 'var(--muted)'; ctx.font = '12px Inter';
+    ctx.fillText(labels[i].slice(0,16), x, h+16);
+  }
+
+  // top wines
+  const container = document.getElementById('top-wines');
+  container.innerHTML = wines.length ? wines.map(w=>`<div style="display:flex;justify-content:space-between;padding:6px 0"><div>${escapeHTML(w.name)}</div><div class="tag">${w.stock}</div></div>`).join('') : '<div class="muted-2">No hay vinos</div>';
+}
+
+/* ======================
+   KPIs
+   ====================== */
+
+function updateKPIs(){
+  const income = totalIncome(30);
+  const costs = totalCosts(30);
+  const prof = income - costs;
+  const salesCount = state.sales.length;
+  document.getElementById('kpi-income').textContent = formatCurrency(income);
+  document.getElementById('kpi-costs').textContent = formatCurrency(costs);
+  document.getElementById('kpi-profit').textContent = formatCurrency(prof);
+  document.getElementById('kpi-sales-count').textContent = salesCount;
+  document.getElementById('kpi-margin').textContent = (income ? ((prof/income)*100).toFixed(1) + '%' : '0%');
+  // best seller
+  const counts = {};
+  for(const s of state.sales) for(const it of s.items) counts[it.wineId] = (counts[it.wineId]||0) + it.qty;
+  const bestId = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('kpi-best-seller').textContent = bestId ? (state.wines.find(w=>w.id==bestId[0])?.name || '—') : '—';
+}
+
+/* ======================
+   Misc: CSV export
+   ====================== */
+
+async function exportCSV(){
+  const rows = [];
+  rows.push(['type','id','date','data']);
+  for(const s of state.sales) rows.push(['sale', s.id, s.date, JSON.stringify(s)]);
+  for(const p of state.purchases) rows.push(['purchase', p.id, p.date, JSON.stringify(p)]);
+  for(const c of state.costs) rows.push(['cost', c.id, c.date, JSON.stringify(c)]);
+  const csv = rows.map(r=> r.map(cell=>`"${String(cell||'').replace(/"/g,'""')}"`).join(',')).join('\\n');
+  const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `vinify-report-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('last-export').textContent = new Date().toLocaleString();
+  notify('CSV exportado');
+}
+
+/* ======================
+   Theme & small utils
+   ====================== */
+
+function toggleTheme(){
+  const root = document.getElementById('app');
+  const t = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  setTheme(t);
+}
+function setTheme(t){
+  const root = document.getElementById('app');
+  root.setAttribute('data-theme', t);
+  document.getElementById('settings-theme').value = t;
+  localStorage.setItem('vinify-theme', t);
+}
+function updateNow(){
+  document.getElementById('now').textContent = new Date().toLocaleString();
+}
+
+/* ======================
+   Service Worker (register file)
+   ====================== */
+
+async function tryRegisterSW(){
+  if('serviceWorker' in navigator){
+    try{
+      // register relative sw.js so it works regardless of site base path
+      await navigator.serviceWorker.register('./sw.js');
+      console.log('Service worker registrado.');
+    }catch(err){ console.warn('SW no registrado', err); }
+  }
+}
+
+/* ======================
+   Boot
+   ====================== */
+
+(async ()=>{ 
+  // apply saved theme & currency
+  const theme = localStorage.getItem('vinify-theme') || 'light';
+  document.getElementById('app').setAttribute('data-theme', theme);
+  document.getElementById('settings-theme').value = theme;
+  const currency = localStorage.getItem('vinify-currency') || 'USD';
+  state.currency = currency;
+  document.getElementById('settings-currency').value = currency;
+
+  await init();
+})();
+
+</script>
+</body>
+</html>
